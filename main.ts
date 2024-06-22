@@ -4,15 +4,25 @@ import {readFileSync} from 'fs';
 import * as path from 'path';
 import {AwsProvider} from '@cdktf/provider-aws/lib/provider';
 import {KeyPair} from '@cdktf/provider-aws/lib/key-pair';
-import {SecurityGroup} from '@cdktf/provider-aws/lib/security-group';
-import {Instance} from '@cdktf/provider-aws/lib/instance';
+import {SecurityModule} from './modules/securities';
+import {ComputeModule} from './modules/compute';
 
 class MyStack extends TerraformStack {
+	private readonly region = "ap-southeast-3";
+	private readonly instanceType = "t3.micro"
+	private readonly amis = {
+		"ap-southeast-3": {
+			value: "ami-006e9f3b56e49ce63"
+		},
+		"ap-southeast-1": {
+			value: "ami-04c913012f8977029"
+		}
+	}
 	constructor(scope: Construct, id: string) {
 		super(scope, id);
 		
 		new AwsProvider(this, "AWS", {
-			region: "ap-southeast-3",
+			region: this.region,
 		});
 		
 		// Tạo Key Pair
@@ -22,51 +32,26 @@ class MyStack extends TerraformStack {
 		});
 		
 		// Tạo Security Group
-		const securityGroup = new SecurityGroup(this, 'test-security-group', {
-			name: 'test-security-group',
-			description: 'test-security-group',
-			ingress: [
-				{
-					fromPort: 443,
-					toPort: 443,
-					protocol: 'tcp',
-					cidrBlocks: ['0.0.0.0/0']
-				},
-				{
-					fromPort: 80,
-					toPort: 80,
-					protocol: 'tcp',
-					cidrBlocks: ['0.0.0.0/0']
-				},
-				{
-					fromPort: 22,
-					toPort: 22,
-					protocol: 'tcp',
-					cidrBlocks: ['0.0.0.0/0']
-				}
-			],
-			egress: [
-				{
-					fromPort: 0,
-					toPort: 0,
-					protocol: '-1',
-					cidrBlocks: ['0.0.0.0/0']
-				}
-			]
+		const securityGroup = new SecurityModule(this, 'security');
+		
+		const ec2Instance = new ComputeModule(this, 'compute', {
+			region: this.region,
+			imageId: this.amis[this.region].value,
+			keyName: keyPair.keyName,
+			instanceType: this.instanceType,
+			ec2SecurityGroupIds: [securityGroup.publicSecurityGroupId]
 		});
 		
-		const ec2Instance = new Instance(this, "compute", {
-			ami: "ami-006e9f3b56e49ce63",
-			instanceType: "t3.micro",
-			keyName: keyPair.keyName,
-			tags: {
-				Name: "AHT Kot Demo"
-			},
-			vpcSecurityGroupIds: [securityGroup.id]
+		new TerraformOutput(this, "private_security_group_id", {
+			value: securityGroup.privateSecurityGroupId,
+		});
+		
+		new TerraformOutput(this, "public_security_group_id", {
+			value: securityGroup.publicSecurityGroupId,
 		});
 		
 		new TerraformOutput(this, "public_ip", {
-			value: ec2Instance.publicIp,
+			value: ec2Instance.demoInstance.publicIp,
 		});
 	}
 }
