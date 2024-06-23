@@ -6,10 +6,17 @@ import {AwsProvider} from '@cdktf/provider-aws/lib/provider';
 import {KeyPair} from '@cdktf/provider-aws/lib/key-pair';
 import {SecurityModule} from './modules/securities';
 import {ComputeModule} from './modules/compute';
+import {NetworkModule} from './modules/network';
 
 class MyStack extends TerraformStack {
 	private readonly region = "ap-southeast-3";
 	private readonly instanceType = "t3.micro"
+	private readonly availabilityZone_1 = "ap-southeast-1a"
+	private readonly availabilityZone_2 = "ap-southeast-1b"
+	private readonly cidrBlock = "10.0.0.0/16"
+	private readonly publicSubnetIps = [ "10.0.1.0/24", "10.0.2.0/24" ]
+	private readonly privateSubnetIps = [ "10.0.10.0/24", "10.0.20.0/24" ]
+	private readonly keypairName = "id_ed25519"
 	private readonly amis = {
 		"ap-southeast-3": {
 			value: "ami-006e9f3b56e49ce63"
@@ -27,12 +34,22 @@ class MyStack extends TerraformStack {
 		
 		// Tạo Key Pair
 		const keyPair = new KeyPair(this, 'kot-keypair', {
-			keyName: 'id_ed25519',
-			publicKey: readFileSync(path.resolve('./keypair/id_ed25519.pub')).toString()
+			keyName: this.keypairName,
+			publicKey: readFileSync(path.resolve(`./keypair/${this.keypairName}.pub`)).toString()
 		});
 		
+		// Tạo Networking Id
+		const networking = new NetworkModule(this, "networking", {
+			region: this.region,
+			availabilityZone1: this.availabilityZone_1,
+			availabilityZone2: this.availabilityZone_2,
+			cidrBlock: this.cidrBlock,
+			publicSubnetIps: this.publicSubnetIps,
+			privateSubnetIps: this.privateSubnetIps,
+		})
+		
 		// Tạo Security Group
-		const securityGroup = new SecurityModule(this, 'security');
+		const securityGroup = new SecurityModule(this, 'security', networking.myVpc.id);
 		
 		const ec2Instance = new ComputeModule(this, 'compute', {
 			region: this.region,

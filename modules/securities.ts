@@ -5,13 +5,14 @@ export class SecurityModule extends Construct {
 	public readonly publicSecurityGroupId: string;
 	public readonly privateSecurityGroupId: string;
 	
-	constructor(scope: Construct, id: string) {
+	constructor(scope: Construct, id: string, vpcId: string) {
 		super(scope, id);
 		
 		// Public Security Group
 		const publicSecurityGroup = new SecurityGroup(this, 'publicSecurityGroup', {
 			name: 'public_security_group',
 			description: 'public_security_group',
+			vpcId,
 			ingress: [
 				{
 					fromPort: 443,
@@ -48,6 +49,7 @@ export class SecurityModule extends Construct {
 		const privateSecurityGroup = new SecurityGroup(this, 'privateSecurityGroup', {
 			name: 'private_security_group',
 			description: 'private_security_group',
+			vpcId,
 			ingress: [
 				{
 					fromPort: 80,
